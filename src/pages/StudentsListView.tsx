@@ -30,7 +30,8 @@ export default function StudentsListView() {
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
   const [reloadKey, setReloadKey] = useState(0)
-  const [busy, setBusy] = useState(false)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [settledKey, setSettledKey] = useState<string | null>(null)
   const [banner, setBanner] = useState<Banner | null>(null)
 
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list')
@@ -39,11 +40,12 @@ export default function StudentsListView() {
   const [formError, setFormError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
   const [noticeOpen, setNoticeOpen] = useState(false)
+  
+  const requestKey = JSON.stringify([search, studentClass, section, perPage, page, reloadKey])
+  const busy = actionBusy || settledKey !== requestKey
 
   useEffect(() => {
     let stale = false
-
-    setBusy(true)
 
     fetchStudents({
       search: search || undefined,
@@ -59,13 +61,13 @@ export default function StudentsListView() {
         if (!stale) setBanner({ tone: 'error', text: apiErrorMessage(caught, 'Could not load students.') })
       })
       .finally(() => {
-        if (!stale) setBusy(false)
+        if (!stale) setSettledKey(requestKey)
       })
 
     return () => {
       stale = true
     }
-  }, [search, studentClass, section, perPage, page, reloadKey])
+  }, [search, studentClass, section, perPage, page, reloadKey, requestKey])
 
   function reload(): void {
     setReloadKey((key) => key + 1)
@@ -121,7 +123,7 @@ export default function StudentsListView() {
   async function handleDelete(student: Student): Promise<void> {
     if (!window.confirm(`Delete ${student.user.name} (${student.roll})?`)) return
 
-    setBusy(true)
+    setActionBusy(true)
 
     try {
       await deleteStudent(student.id)
@@ -131,7 +133,7 @@ export default function StudentsListView() {
     } catch (caught) {
       setBanner({ tone: 'error', text: apiErrorMessage(caught, 'The student could not be deleted.') })
     } finally {
-      setBusy(false)
+      setActionBusy(false)
     }
   }
 
@@ -141,7 +143,7 @@ export default function StudentsListView() {
     event.target.value = ''
     if (file === undefined) return
 
-    setBusy(true)
+    setActionBusy(true)
 
     try {
       const result = await importStudents(file)
@@ -151,12 +153,12 @@ export default function StudentsListView() {
     } catch (caught) {
       setBanner({ tone: 'error', text: apiErrorMessage(caught, 'The CSV could not be imported.') })
     } finally {
-      setBusy(false)
+      setActionBusy(false)
     }
   }
 
   async function handleExport(): Promise<void> {
-    setBusy(true)
+    setActionBusy(true)
 
     try {
       const { blob, filename } = await exportStudents()
@@ -171,7 +173,7 @@ export default function StudentsListView() {
     } catch (caught) {
       setBanner({ tone: 'error', text: apiErrorMessage(caught, 'The CSV could not be exported.') })
     } finally {
-      setBusy(false)
+      setActionBusy(false)
     }
   }
 

@@ -8,33 +8,44 @@ import type { Student } from '../types/api.ts'
 export default function StudentDetailView() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [student, setStudent] = useState<Student | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const studentId = Number(id)
+  const [loaded, setLoaded] = useState<{ id: number; student: Student } | null>(null)
+  const [failure, setFailure] = useState<{ id: number; message: string } | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    const studentId = Number(id)
-
-    if (Number.isFinite(studentId)) {
-      fetchStudent(studentId)
-        .then((data) => {
-          if (!cancelled) {
-            setStudent(data)
-          }
-        })
-        .catch((caught: unknown) => {
-          if (!cancelled) {
-            setError(apiErrorMessage(caught, 'That student could not be loaded.'))
-          }
-        })
-    } else {
-      setError('That student does not exist.')
+    if (!Number.isFinite(studentId)) {
+      return
     }
+
+    let cancelled = false
+
+    fetchStudent(studentId)
+      .then((data) => {
+        if (!cancelled) {
+          setFailure(null)
+          setLoaded({ id: studentId, student: data })
+        }
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setFailure({
+            id: studentId,
+            message: apiErrorMessage(caught, 'That student could not be loaded.'),
+          })
+        }
+      })
 
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [studentId])
+
+  // Results are keyed by id so navigating between students can never surface
+  // a stale error or the previously loaded student's record.
+  const error = Number.isFinite(studentId)
+    ? (failure !== null && failure.id === studentId ? failure.message : null)
+    : 'That student does not exist.'
+  const student = loaded !== null && loaded.id === studentId ? loaded.student : null
 
   if (error !== null) {
     return (
